@@ -8,31 +8,12 @@ from streamlit_folium import st_folium
 import numpy as np
 from google import genai
 
-# 1. PAGE SETUP & CUSTOM STYLING
+# 1. PAGE SETUP
 st.set_page_config(
     page_title="Chicago Geospatial Analytics & AI Lab",
     page_icon="🗺️",
     layout="wide"
 )
-
-# Custom CSS for polished metric cards & clean tabs
-st.markdown("""
-<style>
-    .stMetric {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #0d6efd;
-    }
-    .educational-card {
-        background-color: #ffffff;
-        padding: 18px;
-        border-radius: 8px;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("🗺️ Chicago Spatial Analytics & AI Storytelling Lab")
 st.markdown("Explore spatial point vectors, choropleth polygon aggregations, and interact with an AI Spatial Assistant for insights and report guidance.")
@@ -41,82 +22,115 @@ st.markdown("Explore spatial point vectors, choropleth polygon aggregations, and
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# 3. INTERACTIVE GEOSPATIAL FOUNDATIONS (DATA FORMAT EXPLORER)
+# 3. INTERACTIVE GEOSPATIAL DATA FORMAT EXPLORER
 st.subheader("📚 Interactive Geospatial Data Explorer")
+st.caption("Click a data format below to dynamically load its corresponding interactive visual example and theoretical explanation.")
 
-fmt_tab1, fmt_tab2, fmt_tab3 = st.tabs([
-    "📐 Vector Data (GeoJSON Points & Polygons)", 
-    "🖼️ Raster Data (GeoTIFF Grid Pixels)", 
-    "🌐 Spatial Coordinates (Lat/Lon)"
-])
+# Interactive Selector for Data Formats
+selected_format = st.radio(
+    "Select Data Format to Explore:",
+    [
+        "📍 Vector Points (Incidents)",
+        "🗺️ Vector Polygons (GeoJSON Boundaries)",
+        "🖼️ Raster Data (GeoTIFF Pixel Matrix)",
+        "🌐 Coordinates (Latitude & Longitude)"
+    ],
+    horizontal=True
+)
 
-with fmt_tab1:
-    col_v1, col_v2 = st.columns([1, 1])
-    with col_v1:
+expl_col, vis_col = st.columns([1, 1])
+
+if selected_format == "📍 Vector Points (Incidents)":
+    with expl_col:
+        st.markdown("### 📍 Vector Point Data")
         st.markdown("""
-        <div class="educational-card">
-        <h4>Vector Data (.geojson, .shp)</h4>
-        <p>Vector models represent discrete real-world features using explicit mathematical coordinates (points, lines, polygons).</p>
-        <ul>
-            <li><b>Points:</b> Incident locations, crime events, fire hydrants.</li>
-            <li><b>Lines:</b> Roads, rivers, transit lines.</li>
-            <li><b>Polygons:</b> Neighborhood boundaries, census tracts, land parcels.</li>
-        </ul>
-        <p><b>Key Advantage:</b> Infinite scaling without pixelation and precise geometric attribute storage.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_v2:
-        # Visual Example: Synthetic Polygon Boundary
+        * **Structure:** Discrete $X, Y$ coordinate pairs ($\text{Longitude}, \text{Latitude}$) stored with attributes.
+        * **When to Use:** Representing distinct, localized events or objects like incident locations, fire hydrants, or transit stops.
+        * **Why it Matters:** Allows exact spatial point pattern analysis, distance measurement, and nearest-neighbor calculations.
+        """)
+        st.info("💡 **Interpretation:** Notice how each point represents a distinct individual event with specific properties (Severity, Response Time).")
+    
+    with vis_col:
+        sample_df = pd.DataFrame({
+            "Lat": [41.8781, 41.8850, 41.8700, 41.8900],
+            "Lon": [-87.6298, -87.6350, -87.6200, -87.6400],
+            "Incident": ["INC-1", "INC-2", "INC-3", "INC-4"],
+            "Severity": ["Critical", "High", "Medium", "Low"]
+        })
+        fig_pt = px.scatter_map(
+            sample_df, lat="Lat", lon="Lon", color="Severity", hover_name="Incident",
+            zoom=11.5, center={"lat": 41.8781, "lon": -87.6298},
+            color_discrete_map={"Low": "green", "Medium": "blue", "High": "orange", "Critical": "red"},
+            map_style="carto-positron", title="Interactive Vector Points View"
+        )
+        fig_pt.update_layout(margin={"r":0, "t":30, "l":0, "b":0}, height=300)
+        st.plotly_chart(fig_pt, use_container_width=True)
+
+elif selected_format == "🗺️ Vector Polygons (GeoJSON Boundaries)":
+    with expl_col:
+        st.markdown("### 🗺️ Vector Polygon Data (GeoJSON)")
+        st.markdown("""
+        * **Structure:** Closed loops of connected coordinate pairs defining bounded geographical areas.
+        * **When to Use:** Representing administrative boundaries, community areas, voting districts, or census tracts.
+        * **Why it Matters:** Essential for choropleth mapping and aggregating point counts into policy-relevant administrative units.
+        """)
+        st.info("💡 **Interpretation:** Polygons group spatial information inside defined administrative zones so decision-makers can allocate localized budgets.")
+
+    with vis_col:
         poly_lat = [41.875, 41.885, 41.885, 41.875, 41.875]
         poly_lon = [-87.635, -87.635, -87.620, -87.620, -87.635]
-        fig_vector_demo = px.line_map(
+        fig_poly = px.line_map(
             lat=poly_lat, lon=poly_lon,
             zoom=12, center={"lat": 41.880, "lon": -87.627},
-            map_style="carto-positron",
-            title="Vector Polygon Boundary Example (GeoJSON Zone)"
+            map_style="carto-positron", title="Interactive GeoJSON Boundary Polygon View"
         )
-        fig_vector_demo.update_layout(margin={"r":0, "t":30, "l":0, "b":0}, height=250)
-        st.plotly_chart(fig_vector_demo, use_container_width=True)
+        fig_poly.update_layout(margin={"r":0, "t":30, "l":0, "b":0}, height=300)
+        st.plotly_chart(fig_poly, use_container_width=True)
 
-with fmt_tab2:
-    col_r1, col_r2 = st.columns([1, 1])
-    with col_r1:
+elif selected_format == "🖼️ Raster Data (GeoTIFF Pixel Matrix)":
+    with expl_col:
+        st.markdown("### 🖼️ Raster Grid Data (.TIFF / .GeoTIFF)")
         st.markdown("""
-        <div class="educational-card">
-        <h4>Raster Data (.tif, .geotiff)</h4>
-        <p>Raster models represent continuous spatial phenomena using a regular grid matrix of square pixel cells. Every cell contains a single continuous value.</p>
-        <ul>
-            <li><b>Continuous Phenomena:</b> Satellite imagery, elevation models (DEM), urban heat surface temperature, air quality grids.</li>
-            <li><b>When to use GeoTIFF (.tif):</b> When data changes smoothly across space without stopping cleanly at administrative borders.</li>
-        </ul>
-        <p><b>Key Advantage:</b> Ideal for continuous mathematical surface operations and remote sensing analysis.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_r2:
-        # Visual Example: Synthetic Continuous Heat Map Matrix (Raster Simulation)
-        x_grid, y_grid = np.meshgrid(np.linspace(-2, 2, 30), np.linspace(-2, 2, 30))
-        z_raster = np.exp(-x_grid**2 - y_grid**2)  # Continuous heat surface
-        
-        fig_raster_demo = px.imshow(
-            z_raster, 
-            color_continuous_scale="Viridis",
-            title="Continuous Raster Surface Grid Simulation (.TIFF Pixel Matrix)"
-        )
-        fig_raster_demo.update_layout(margin={"r":0, "t":30, "l":0, "b":0}, height=250)
-        st.plotly_chart(fig_raster_demo, use_container_width=True)
+        * **Structure:** Continuous grid matrix made of square pixels where every cell holds a numeric surface value.
+        * **When to Use:** Satellite imagery, elevation models (DEM), heat maps, or urban heat island surface measurements.
+        * **Why GeoTIFF (.tif)?** Used when phenomena vary continuously across space without stopping cleanly at neighborhood borders.
+        """)
+        st.info("💡 **Interpretation:** Heatmaps and satellite images don't have borders; they store continuous cell values across a spatial grid.")
 
-with fmt_tab3:
-    st.markdown("""
-    <div class="educational-card">
-    <h4>Coordinate Reference Systems (CRS) & Position Pinpointing</h4>
-    <p>Spatial analysis relies on spherical geographic coordinates to locate features on Earth's surface:</p>
-    <ul>
-        <li><b>Latitude ($\mathbf{\phi}$):</b> Measures position North or South of the Equator ($0^\circ$). Chicago sits near <b>$41.8781^\circ\text{ N}$</b>.</li>
-        <li><b>Longitude ($\mathbf{\lambda}$):</b> Measures position East or West of the Prime Meridian ($0^\circ$). Chicago sits near <b>$-87.6298^\circ\text{ W}$</b>.</li>
-        <li><b>EPSG:4326 (WGS84):</b> The standard global coordinate system used by web GPS mapping tools.</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
+    with vis_col:
+        x_grid, y_grid = np.meshgrid(np.linspace(-2, 2, 35), np.linspace(-2, 2, 35))
+        z_raster = np.exp(-x_grid**2 - y_grid**2)
+        fig_rast = px.imshow(
+            z_raster, color_continuous_scale="Hot",
+            title="Continuous GeoTIFF Raster Grid Heatmap Simulation"
+        )
+        fig_rast.update_layout(margin={"r":0, "t":30, "l":0, "b":0}, height=300)
+        st.plotly_chart(fig_rast, use_container_width=True)
+
+else:
+    with expl_col:
+        st.markdown("### 🌐 Coordinates (Latitude & Longitude)")
+        st.markdown("""
+        * **Latitude ($\mathbf{\phi}$):** Measures angular distance North/South of the Equator ($0^\circ$). Chicago is centered at $\sim 41.8781^\circ\text{ N}$.
+        * **Longitude ($\mathbf{\lambda}$):** Measures angular distance East/West of the Prime Meridian ($0^\circ$). Chicago is centered at $\sim -87.6298^\circ\text{ W}$.
+        * **CRS (EPSG:4326):** Standard global datum (WGS84) used by GPS systems to project spherical coordinates onto flat screens.
+        """)
+        st.info("💡 **Interpretation:** Every point on Earth requires both a latitude and longitude value to be uniquely identified.")
+
+    with vis_col:
+        fig_coord = go.Figure(go.Scattergeo(
+            lat=[41.8781], lon=[-87.6298],
+            mode='markers+text',
+            text=["Chicago (41.8781° N, -87.6298° W)"],
+            textposition="top center",
+            marker=dict(size=12, color='red')
+        ))
+        fig_coord.update_layout(
+            title="Coordinate Spatial Marker",
+            geo=dict(projection_scale=3, center=dict(lat=41.8781, lon=-87.6298), showland=True),
+            margin={"r":0, "t":30, "l":0, "b":0}, height=300
+        )
+        st.plotly_chart(fig_coord, use_container_width=True)
 
 st.divider()
 
