@@ -215,7 +215,7 @@ with tab1:
 
                 try:
                     response_stream = client.models.generate_content_stream(
-                        model='gemini-2.5-flash',
+                        model='gemini-3.6-flash',
                         contents=f"System Context: {system_context}\n\nUser Question: {user_prompt}"
                     )
 
