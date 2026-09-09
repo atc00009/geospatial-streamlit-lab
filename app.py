@@ -273,24 +273,71 @@ with tab2:
                 except Exception as e:
                     st.error(f"⚠️ Report Generation Failed: {e}")
 
-# TAB 3: GUIDED CLASSROOM ACTIVITIES
+# TAB 3: GUIDED STORY & DECISION WORKSHOP
 with tab3:
     st.markdown("""
-    ### 🧪 Student Lab Activities
-
-    **Activity 1: Why Use Geospatial Visualizations?**
-    * Compare the total metric counts against the active map layer.
-    * *Question:* What spatial hotspots or high-density incident pockets do you see on the map that summary numbers alone fail to show?
-
-    **Activity 2: Raster vs. Vector Choice**
-    * *Scenario:* You are mapping discrete incident locations vs. continuous satellite land surface temperature data across Chicago.
-    * *Question:* Why are incident coordinates stored as vector points, whereas continuous surface maps are stored as raster TIFF images?
-
-    **Activity 3: Comparing Visualization Perspectives**
-    * Switch between the **Scatter Point Vector Layer** and **Aggregated Choropleth Polygon Map** on the sidebar.
-    * *Question:* How does viewing data as individual incident markers compare to viewing aggregated community totals?
+    ### 🧠 Data Story & Decision Workshop
+    **Goal:** build your analysis *from the map and chart alone* — no raw table, no AI report yet.
+    Write your own story first. You'll compare it against the AI-generated report afterward.
     """)
 
-# TAB 4: RAW DATASET
+    with st.expander("🔎 What to look for in each view (read this before you start)", expanded=False):
+        st.markdown("""
+        **Scatter Point Vector Layer** — each dot is one incident (hover for ID & response time).
+        Look for spatial *clustering* (do dots bunch up in specific neighborhoods?) and the
+        *color × size interaction* (large red dots = Critical severity **and** slow response —
+        a flag worth naming explicitly).
+
+        **Aggregated Choropleth Polygon Map** — each shaded polygon is a community area, colored
+        by incident count (hover for area ID & count). This is the unit a city planner actually
+        allocates budget against. Check whether the areas that light up here match the clusters
+        you saw on the scatter map — agreement strengthens your case, disagreement is worth
+        explaining.
+
+        **Interactive Folium Map** — click individual markers (red = Critical) to drill into
+        specific cases and spot-check outliers the aggregate views smoothed over.
+
+        **Response Time Histogram** — compare the *shape and tail* of each severity color. A
+        right-shifted tail for Critical vs. Low is strong, citable evidence that response
+        prioritization isn't matching severity.
+        """)
+
+    st.divider()
+    st.markdown("#### ✍️ Your Analysis")
+
+    if "student_story" not in st.session_state:
+        st.session_state.student_story = {"observations": "", "hypothesis": "", "decision": ""}
+
+    st.session_state.student_story["observations"] = st.text_area(
+        "1️⃣ Observations — what patterns do you see on the active map and histogram right now?",
+        value=st.session_state.student_story["observations"],
+        placeholder="e.g. Incidents cluster near community areas 24 and 33; Critical incidents show a longer response-time tail than Low..."
+    )
+
+    st.session_state.student_story["hypothesis"] = st.text_area(
+        "2️⃣ Hypothesis — why might this pattern exist?",
+        value=st.session_state.student_story["hypothesis"],
+        placeholder="e.g. These areas may be farther from existing stations, or have higher call volume overall..."
+    )
+
+    st.session_state.student_story["decision"] = st.text_area(
+        "3️⃣ Decision — what would you recommend a city manager do, based only on what you've observed?",
+        value=st.session_state.student_story["decision"],
+        placeholder="e.g. Prioritize a new response unit near area 24; audit dispatch times for Critical calls..."
+    )
+
+    st.divider()
+    st.info(
+        "✅ Once your story is written, generate the AI report in the **✨ Auto-Generate AI Report** tab "
+        "and compare: What did it notice that you missed? What did you catch that it didn't? "
+        "Where do your recommendations agree or disagree?"
+    )
+
+# TAB 4: RAW DATASET (verification, not a shortcut)
 with tab4:
+    st.caption(
+        "💡 Use this to **verify** the story you already wrote — not to skip straight to it. "
+        "If you're seeing this before filling out the Workshop tab, go back and write your "
+        "observations from the map first."
+    )
     st.dataframe(filtered_df, use_container_width=True)
