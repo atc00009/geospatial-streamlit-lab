@@ -80,7 +80,8 @@ with left_col:
     st.subheader(f"Geospatial View — {view_mode}")
     
     if view_mode == "Scatter Point Vector Layer":
-        fig_point = px.scatter_mapbox(
+        # Updated method for modern Plotly versions
+        fig_point = px.scatter_map(
             filtered_df,
             lat="Latitude",
             lon="Longitude",
@@ -89,7 +90,7 @@ with left_col:
             color_discrete_map={"Low": "green", "Medium": "blue", "High": "orange", "Critical": "red"},
             zoom=9.5,
             center={"lat": 41.8781, "lon": -87.6298},
-            mapbox_style="carto-positron",
+            map_style="carto-positron",
             hover_data=["Incident_ID", "Response_Time_Min"]
         )
         fig_point.update_layout(margin={"r":0, "t":0, "l":0, "b":0})
@@ -97,7 +98,8 @@ with left_col:
 
     elif view_mode == "Aggregated Choropleth Polygon Map":
         counts = filtered_df.groupby("Community_Area").size().reset_index(name="Incident_Count")
-        fig_choro = px.choropleth_mapbox(
+        # Updated method for modern Plotly versions
+        fig_choro = px.choropleth_map(
             counts,
             geojson="https://raw.githubusercontent.com/chicago/chicago-gis/master/Community_Areas.geojson",
             featureidkey="properties.area_num_1",
@@ -106,7 +108,7 @@ with left_col:
             color_continuous_scale="Reds",
             zoom=9.5,
             center={"lat": 41.8781, "lon": -87.6298},
-            mapbox_style="carto-positron"
+            map_style="carto-positron"
         )
         fig_choro.update_layout(margin={"r":0, "t":0, "l":0, "b":0})
         st.plotly_chart(fig_choro, use_container_width=True)
