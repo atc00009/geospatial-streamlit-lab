@@ -166,11 +166,12 @@ with right_col:
 st.divider()
 st.subheader("🤖 AI Spatial Assistant & Report Builder")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "💬 Chat with AI Assistant", 
     "✨ Auto-Generate AI Report", 
-    "🧠 Lab Student Activities", 
-    "🔍 View Raw Dataset"
+    "🧠 Story & Decision Workshop", 
+    "🔍 View Raw Dataset",
+    "🆚 Compare: You vs. AI"
 ])
 
 # TAB 1: INTERACTIVE CHAT INTERFACE
@@ -267,11 +268,14 @@ with tab2:
                         model='gemini-3.6-flash',
                         contents=report_prompt
                     )
-                    
-                    st.markdown(response.text)
+
+                    st.session_state.ai_report = response.text
 
                 except Exception as e:
                     st.error(f"⚠️ Report Generation Failed: {e}")
+
+        if st.session_state.get("ai_report"):
+            st.markdown(st.session_state.ai_report)
 
 # TAB 3: GUIDED STORY & DECISION WORKSHOP
 with tab3:
@@ -341,3 +345,43 @@ with tab4:
         "observations from the map first."
     )
     st.dataframe(filtered_df, use_container_width=True)
+
+# TAB 5: COMPARE — STUDENT STORY VS. AI REPORT
+with tab5:
+    st.markdown("### 🆚 Compare Your Story vs. the AI Report")
+
+    story = st.session_state.get("student_story", {"observations": "", "hypothesis": "", "decision": ""})
+    ai_report = st.session_state.get("ai_report", "")
+
+    story_written = any(story.values())
+    report_generated = bool(ai_report)
+
+    if not story_written or not report_generated:
+        missing = []
+        if not story_written:
+            missing.append("your notes in **🧠 Story & Decision Workshop**")
+        if not report_generated:
+            missing.append("a report from **✨ Auto-Generate AI Report**")
+        st.warning("Fill in " + " and ".join(missing) + " to unlock the comparison.")
+    else:
+        col_you, col_ai = st.columns(2)
+
+        with col_you:
+            st.markdown("#### 🧑‍🎓 Your Story")
+            st.markdown(f"**Observations**\n\n{story['observations']}")
+            st.markdown(f"**Hypothesis**\n\n{story['hypothesis']}")
+            st.markdown(f"**Decision**\n\n{story['decision']}")
+
+        with col_ai:
+            st.markdown("#### 🤖 AI Report")
+            st.markdown(ai_report)
+
+        st.divider()
+        st.markdown("#### 📝 Reflection")
+        st.session_state.setdefault("reflection_notes", "")
+        st.session_state.reflection_notes = st.text_area(
+            "Where did you and the AI agree or disagree? What did it catch that you missed — "
+            "and what did you notice that it didn't mention?",
+            value=st.session_state.reflection_notes,
+            height=150
+        )
