@@ -184,7 +184,7 @@ with tab1:
             st.session_state.chat_messages = [
                 {
                     "role": "assistant", 
-                    "content": "Hello! I am your Spatial Data Science AI assistant. Ask me how to interpret your active map data, analyze geographic hotspots, or write policy recommendations!"
+                    "content": "Hello! I am your Spatial Data Science AI assistant powered by GPT-6 Astra. Ask me how to interpret your active map data, analyze geographic hotspots, or write policy recommendations!"
                 }
             ]
 
@@ -201,7 +201,7 @@ with tab1:
                 message_placeholder = st.empty()
                 
                 system_context = f"""
-                You are an expert Spatial Analytics Teaching Assistant. 
+                You are an expert Spatial Analytics Teaching Assistant powered by the GPT-6 Astra model. 
                 The student is currently analyzing Chicago incident data with these parameters:
                 - Selected Severities: {selected_severity}
                 - Total Filtered Incidents: {len(filtered_df)}
@@ -216,21 +216,24 @@ with tab1:
                     {"role": m["role"], "content": m["content"]} for m in st.session_state.chat_messages
                 ]
 
-                response_stream = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages_for_api,
-                    stream=True
-                )
+                try:
+                    response_stream = client.chat.completions.create(
+                        model="gpt-6-astra",
+                        messages=messages_for_api,
+                        stream=True
+                    )
 
-                full_response = ""
-                for chunk in response_stream:
-                    if chunk.choices[0].delta.content is not None:
-                        full_response += chunk.choices[0].delta.content
-                        message_placeholder.markdown(full_response + "▌")
-                
-                message_placeholder.markdown(full_response)
-            
-            st.session_state.chat_messages.append({"role": "assistant", "content": full_response})
+                    full_response = ""
+                    for chunk in response_stream:
+                        if chunk.choices[0].delta.content is not None:
+                            full_response += chunk.choices[0].delta.content
+                            message_placeholder.markdown(full_response + "▌")
+                    
+                    message_placeholder.markdown(full_response)
+                    st.session_state.chat_messages.append({"role": "assistant", "content": full_response})
+
+                except Exception as e:
+                    st.error(f"⚠️ OpenAI API Call Failed: {e}. Please ensure your API key has access to 'gpt-6-astra' or check Streamlit Secrets.")
 
 # TAB 2: AUTOMATED REPORT GENERATOR
 with tab2:
@@ -240,37 +243,42 @@ with tab2:
         st.warning("⚠️ OpenAI API key not detected. Please add `OPENAI_API_KEY` to your Streamlit secrets.")
     else:
         if st.button("🚀 Generate Spatial Story & Insights Report"):
-            with st.spinner("Analyzing spatial patterns and drafting story..."):
-                avg_time = filtered_df['Response_Time_Min'].mean() if not filtered_df.empty else 0
-                total_incidents = len(filtered_df)
-                top_areas = filtered_df['Community_Area'].value_counts().head(3).to_dict() if not filtered_df.empty else {}
-                severity_counts = filtered_df['Severity'].value_counts().to_dict() if not filtered_df.empty else {}
+            with st.spinner("Analyzing spatial patterns and drafting story with GPT-6 Astra..."):
+                try:
+                    avg_time = filtered_df['Response_Time_Min'].mean() if not filtered_df.empty else 0
+                    total_incidents = len(filtered_df)
+                    top_areas = filtered_df['Community_Area'].value_counts().head(3).to_dict() if not filtered_df.empty else {}
+                    severity_counts = filtered_df['Severity'].value_counts().to_dict() if not filtered_df.empty else {}
 
-                report_prompt = f"""
-                You are a Senior Spatial Data Science Professor. Analyze the following Chicago geospatial incident data summary and write an engaging data story and report section for students.
+                    report_prompt = f"""
+                    You are a Senior Spatial Data Science Professor using the GPT-6 Astra reasoning framework. 
+                    Analyze the following Chicago geospatial incident data summary and write an engaging data story and report section for students.
 
-                DATA SUMMARY:
-                - Total Incidents Analyzed: {total_incidents}
-                - Selected Severities: {selected_severity}
-                - Breakdown by Severity: {severity_counts}
-                - Average Emergency Response Time: {avg_time:.1f} minutes
-                - Top 3 Community Area Hotspots (IDs): {top_areas}
+                    DATA SUMMARY:
+                    - Total Incidents Analyzed: {total_incidents}
+                    - Selected Severities: {selected_severity}
+                    - Breakdown by Severity: {severity_counts}
+                    - Average Emergency Response Time: {avg_time:.1f} minutes
+                    - Top 3 Community Area Hotspots (IDs): {top_areas}
 
-                Please structure your output using Markdown with these explicit sections:
-                1. 📖 **The Data Story (Context & Narrative)**: Set the scene in Chicago for city managers and policymakers.
-                2. 📊 **Key Analytical Insights**: Interpret the numbers, hotspots, and response times. Explain spatial risks clearly.
-                3. 💡 **Strategic Recommendations**: Provide 3 concrete, actionable recommendations for city resource allocation.
-                4. 📝 **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
-                """
+                    Please structure your output using Markdown with these explicit sections:
+                    1. 📖 **The Data Story (Context & Narrative)**: Set the scene in Chicago for city managers and policymakers.
+                    2. 📊 **Key Analytical Insights**: Interpret the numbers, hotspots, and response times. Explain spatial risks clearly.
+                    3. 💡 **Strategic Recommendations**: Provide 3 concrete, actionable recommendations for city resource allocation.
+                    4. 📝 **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
+                    """
 
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": report_prompt}],
-                    temperature=0.7
-                )
-                
-                ai_report = response.choices[0].message.content
-                st.markdown(ai_report)
+                    response = client.chat.completions.create(
+                        model="gpt-6-astra",
+                        messages=[{"role": "user", "content": report_prompt}],
+                        temperature=0.7
+                    )
+                    
+                    ai_report = response.choices[0].message.content
+                    st.markdown(ai_report)
+
+                except Exception as e:
+                    st.error(f"⚠️ Report Generation Failed: {e}. Ensure 'gpt-6-astra' model access is enabled on your OpenAI organization.")
 
 # TAB 3: GUIDED CLASSROOM ACTIVITIES
 with tab3:
