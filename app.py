@@ -21,7 +21,27 @@ st.markdown("Explore spatial point vectors, choropleth polygon aggregations, and
 openai_key = st.secrets.get("OPENAI_API_KEY", None)
 client = OpenAI(api_key=openai_key) if openai_key else None
 
-# 2. CACHED GEOSPATIAL DATA GENERATOR
+# 2. GEOSPATIAL FOUNDATIONS (EDUCATIONAL CONCEPT MODULE)
+with st.expander("📚 **Geospatial Foundations: Why Spatial Data, Raster, & TIFF Files Matter**", expanded=True):
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("""
+        **Why Use Geospatial Data?**
+        * **Beyond Static Summary Tables:** Summary numbers tell you *how much*, but spatial mapping reveals *where* events cluster and how they relate across urban space.
+        * **Latitude ($\phi$) & Longitude ($\lambda$):** Spherical coordinates used to pinpoint exact positions on Earth. Chicago is centered near $\sim 41.8781^\circ\text{ N}, -87.6298^\circ\text{ W}$.
+        * **Layered Context:** Spatial frameworks let you layer discrete events (points) over administrative boundaries (neighborhood polygons) and environmental basemaps.
+        """)
+    with col_b:
+        st.markdown("""
+        **Data Formats: Vector vs. Raster (TIFF & GeoTIFF)**
+        * **Vector Data (Point, Line, Polygon):** Represents discrete features using explicit coordinates.
+          * *Points:* Incident locations (`Latitude`, `Longitude`).
+          * *Polygons:* Neighborhood boundary shapes saved in **GeoJSON** format.
+        * **Raster Data (Pixel Grids & TIFF / `.tif`):** Represents continuous surfaces where every square cell holds a value (e.g., satellite imagery, urban heat islands, elevation models).
+        * **Why GeoTIFF (.tif)?** Used when data varies continuously across space rather than stopping cleanly at administrative borders.
+        """)
+
+# 3. CACHED GEOSPATIAL DATA GENERATOR
 @st.cache_data
 def load_data():
     np.random.seed(42)
@@ -53,7 +73,7 @@ def load_data():
 
 df_incidents, gdf_incidents = load_data()
 
-# 3. INTERACTIVE SIDEBAR CONTROL PANEL
+# 4. INTERACTIVE SIDEBAR CONTROL PANEL
 st.sidebar.header("🎛️ Student Control Panel")
 
 selected_severity = st.sidebar.multiselect(
@@ -70,7 +90,7 @@ view_mode = st.sidebar.radio(
 # Filter Data based on user inputs
 filtered_df = df_incidents[df_incidents["Severity"].isin(selected_severity)]
 
-# 4. METRIC KPIS
+# 5. METRIC KPIS
 kpi1, kpi2, kpi3 = st.columns(3)
 kpi1.metric("Visible Incidents", f"{len(filtered_df):,}")
 kpi2.metric("Average Response Time", f"{filtered_df['Response_Time_Min'].mean():.1f} min" if not filtered_df.empty else "N/A")
@@ -78,7 +98,7 @@ kpi3.metric("Critical Incidents Ratio", f"{(filtered_df['Severity'] == 'Critical
 
 st.divider()
 
-# 5. VISUALIZATION CANVAS
+# 6. VISUALIZATION CANVAS (MAPS + HISTOGRAM CHARTS)
 left_col, right_col = st.columns([2, 1])
 
 with left_col:
@@ -142,15 +162,15 @@ with right_col:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
-# 6. AI ASSISTANT, STORYTELLING & REPORT GENERATOR
+# 7. AI ASSISTANT, STORYTELLING & REPORT GENERATOR
 st.divider()
 st.subheader("🤖 AI Spatial Assistant & Report Builder")
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    " Chat with AI Assistant", 
-    " Auto-Generate AI Report", 
-    " Lab Reflection Questions", 
-    " View Raw Dataset"
+    "💬 Chat with AI Assistant", 
+    "✨ Auto-Generate AI Report", 
+    "🧠 Lab Student Activities", 
+    "🔍 View Raw Dataset"
 ])
 
 # TAB 1: INTERACTIVE CHAT INTERFACE
@@ -158,9 +178,8 @@ with tab1:
     st.markdown("Ask the AI assistant any questions about analyzing spatial data, interpreting map hotspots, or structuring your lab report.")
     
     if not client:
-        st.warning(" OpenAI API key not detected. Please add `OPENAI_API_KEY` to your Streamlit secrets to enable live chat.")
+        st.warning("⚠️ OpenAI API key not detected. Please add `OPENAI_API_KEY` to your Streamlit secrets to enable live chat.")
     else:
-        # Initialize chat history in session state
         if "chat_messages" not in st.session_state:
             st.session_state.chat_messages = [
                 {
@@ -169,18 +188,15 @@ with tab1:
                 }
             ]
 
-        # Display conversation history
         for message in st.session_state.chat_messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        # Chat Input Box
         if user_prompt := st.chat_input("Ask a question about your spatial analysis or report structure..."):
             st.session_state.chat_messages.append({"role": "user", "content": user_prompt})
             with st.chat_message("user"):
                 st.markdown(user_prompt)
 
-            # Generate streaming response
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 
@@ -189,10 +205,10 @@ with tab1:
                 The student is currently analyzing Chicago incident data with these parameters:
                 - Selected Severities: {selected_severity}
                 - Total Filtered Incidents: {len(filtered_df)}
-                - Average Response Time: {filtered_df['Response_Time_Min'].mean():.1f} min if dataset not empty else 0
+                - Average Response Time: {filtered_df['Response_Time_Min'].mean():.1f} min if not filtered_df.empty else 0
                 - Active Map Representation: {view_mode}
 
-                Help the student understand spatial concepts (vector vs. polygon/choropleth, MAUP, point clusters), 
+                Help the student understand spatial concepts (vector vs. raster/TIFF, point clusters vs boundary polygons), 
                 and guide them on how to write professional analytical insights and policy recommendations.
                 """
                 
@@ -223,14 +239,14 @@ with tab2:
     if not client:
         st.warning("⚠️ OpenAI API key not detected. Please add `OPENAI_API_KEY` to your Streamlit secrets.")
     else:
-        if st.button(" Generate Spatial Story & Insights Report"):
+        if st.button("🚀 Generate Spatial Story & Insights Report"):
             with st.spinner("Analyzing spatial patterns and drafting story..."):
                 avg_time = filtered_df['Response_Time_Min'].mean() if not filtered_df.empty else 0
                 total_incidents = len(filtered_df)
                 top_areas = filtered_df['Community_Area'].value_counts().head(3).to_dict() if not filtered_df.empty else {}
                 severity_counts = filtered_df['Severity'].value_counts().to_dict() if not filtered_df.empty else {}
 
-                prompt = f"""
+                report_prompt = f"""
                 You are a Senior Spatial Data Science Professor. Analyze the following Chicago geospatial incident data summary and write an engaging data story and report section for students.
 
                 DATA SUMMARY:
@@ -241,28 +257,37 @@ with tab2:
                 - Top 3 Community Area Hotspots (IDs): {top_areas}
 
                 Please structure your output using Markdown with these explicit sections:
-                1.  **The Data Story (Context & Narrative)**: Set the scene in Chicago for city managers and policymakers.
-                2.  **Key Analytical Insights**: Interpret the numbers, hotspots, and response times. Explain spatial risks clearly.
-                3.  **Strategic Recommendations**: Provide 3 concrete, actionable recommendations for city resource allocation.
-                4.  **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
+                1. 📖 **The Data Story (Context & Narrative)**: Set the scene in Chicago for city managers and policymakers.
+                2. 📊 **Key Analytical Insights**: Interpret the numbers, hotspots, and response times. Explain spatial risks clearly.
+                3. 💡 **Strategic Recommendations**: Provide 3 concrete, actionable recommendations for city resource allocation.
+                4. 📝 **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
                 """
 
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": report_prompt}],
                     temperature=0.7
                 )
                 
                 ai_report = response.choices[0].message.content
                 st.markdown(ai_report)
 
-# TAB 3: GUIDED REFLECTION QUESTIONS
+# TAB 3: GUIDED CLASSROOM ACTIVITIES
 with tab3:
     st.markdown("""
-    **Guided Questions for Manual Student Analysis:**
-    1. **Spatial Aggregation (MAUP):** Toggle between *Scatter Point Vector* and *Choropleth Polygon Map*. Does polygon aggregation conceal localized spatial hotspots?
-    2. **Resource Distribution:** Analyze the Response Time histogram across severity levels. Do high-severity incidents exhibit shorter response times?
-    3. **Spatial Bias:** How might non-random reporting patterns introduce bias when analyzing city incident distributions?
+    ### 🧪 Student Lab Activities
+
+    **Activity 1: Why Use Geospatial Visualizations?**
+    * Compare the total metric counts against the active map layer.
+    * *Question:* What spatial hotspots or high-density incident pockets do you see on the map that summary numbers alone fail to show?
+
+    **Activity 2: Raster vs. Vector Choice**
+    * *Scenario:* You are mapping discrete incident locations vs. continuous satellite land surface temperature data across Chicago.
+    * *Question:* Why are incident coordinates stored as vector points, whereas continuous surface maps are stored as raster TIFF images?
+
+    **Activity 3: Comparing Visualization Perspectives**
+    * Switch between the **Scatter Point Vector Layer** and **Aggregated Choropleth Polygon Map** on the sidebar.
+    * *Question:* How does viewing data as individual incident markers compare to viewing aggregated community totals?
     """)
 
 # TAB 4: RAW DATASET
