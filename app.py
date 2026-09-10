@@ -22,6 +22,41 @@ st.markdown("Explore spatial point vectors, choropleth polygon aggregations, and
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
+# 2b. RESILIENT MODEL FALLBACK LIST
+# Ordered from most-preferred to least-preferred. If Google retires the first
+# model, the code automatically tries the next one instead of erroring out.
+FLASH_MODEL_CANDIDATES = [
+    "gemini-flash-latest",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+]
+
+def generate_with_fallback(client, contents, stream=False):
+    """
+    Try each model in FLASH_MODEL_CANDIDATES in order until one works.
+    Returns (response_or_stream, model_name_used).
+    Raises the last error if every candidate fails.
+    """
+    last_error = None
+    for model_name in FLASH_MODEL_CANDIDATES:
+        try:
+            if stream:
+                result = client.models.generate_content_stream(
+                    model=model_name,
+                    contents=contents
+                )
+            else:
+                result = client.models.generate_content(
+                    model=model_name,
+                    contents=contents
+                )
+            return result, model_name
+        except Exception as e:
+            last_error = e
+            continue
+    raise last_error
+
 # 3. INTERACTIVE GEOSPATIAL DATA FORMAT EXPLORER
 st.subheader("📚 Interactive Geospatial Data Explorer")
 st.caption("Click a data format below to dynamically load its corresponding interactive visual example and theoretical explanation.")
@@ -305,9 +340,10 @@ with tab1:
                 """
 
                 try:
-                    response_stream = client.models.generate_content_stream(
-                        model='gemini-flash-latest',
-                        contents=f"System Context: {system_context}\n\nUser Question: {user_prompt}"
+                    response_stream, used_model = generate_with_fallback(
+                        client,
+                        contents=f"System Context: {system_context}\n\nUser Question: {user_prompt}",
+                        stream=True
                     )
 
                     full_response = ""
@@ -354,9 +390,10 @@ with tab2:
                     4. 📝 **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
                     """
 
-                    response = client.models.generate_content(
-                        model='gemini-flash-latest',
-                        contents=report_prompt
+                    response, used_model = generate_with_fallback(
+                        client,
+                        contents=report_prompt,
+                        stream=False
                     )
 
                     st.session_state.ai_report = response.text
