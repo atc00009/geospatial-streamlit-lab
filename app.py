@@ -27,8 +27,8 @@ client = genai.Client(api_key=gemini_key) if gemini_key else None
 # model, the code automatically tries the next one instead of erroring out.
 FLASH_MODEL_CANDIDATES = [
     "gemini-flash-latest",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
     "gemini-2.5-flash",
 ]
 
