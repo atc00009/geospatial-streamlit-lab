@@ -1,4 +1,4 @@
-import streamlit as st  # MUST BE AT THE VERY TOP OF APP.PY
+import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import plotly.express as px
@@ -7,8 +7,12 @@ import folium
 from streamlit_folium import st_folium
 import numpy as np
 from google import genai
+import time
+import random
 
+# -----------------------------
 # 1. PAGE SETUP
+# -----------------------------
 st.set_page_config(
     page_title="Chicago Geospatial Analytics & AI Lab",
     page_icon="🗺️",
@@ -16,20 +20,23 @@ st.set_page_config(
 )
 
 st.title("🗺️ Chicago Spatial Analytics & AI Storytelling Lab")
-st.markdown("Explore spatial point vectors, choropleth polygon aggregations, and interact with an AI Spatial Assistant for insights and report guidance.")
+st.markdown(
+    "Explore spatial point vectors, choropleth polygon aggregations, and interact with an AI Spatial Assistant for insights and report guidance."
+)
 
-# 2. INITIALIZE GEMINI CLIENT SAFELY
+# -----------------------------
+# 2. INITIALIZE GEMINI CLIENT
+# -----------------------------
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# 2b. RESILIENT MODEL FALLBACK LIST
-# Ordered from most-preferred to least-preferred. If Google retires the first
-# model, the code automatically tries the next one instead of erroring out.
+# -----------------------------
+# 2b. MODEL FALLBACK + RETRY
+# -----------------------------
 FLASH_MODEL_CANDIDATES = [
-    "gemini-flash-latest",
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-2.5-flash",
+    "gemini-3.8-flash",  # newest stable Flash
+    "gemini-3.7-flash",  # widely used workhorse
+    "gemini-2.5-flash",  # older but stable fallback
 ]
 
 def generate_with_fallback(client, contents, stream=False):
@@ -57,11 +64,40 @@ def generate_with_fallback(client, contents, stream=False):
             continue
     raise last_error
 
-# 3. INTERACTIVE GEOSPATIAL DATA FORMAT EXPLORER
-st.subheader("📚 Interactive Geospatial Data Explorer")
-st.caption("Click a data format below to dynamically load its corresponding interactive visual example and theoretical explanation.")
+def generate_with_retry(client, contents, max_retries=4, base_delay=1.0):
+    """
+    Retry-capable generator for non-streaming calls (e.g., report generation).
+    Retries on transient 503/UNAVAILABLE and 429 with exponential backoff + jitter.
+    """
+    last_error = None
+    for attempt in range(max_retries + 1):
+        for model_name in FLASH_MODEL_CANDIDATES:
+            try:
+                result = client.models.generate_content(
+                    model=model_name,
+                    contents=contents
+                )
+                return result, model_name
+            except Exception as e:
+                err_str = str(e).upper()
+                if "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str:
+                    last_error = e
+                    continue
+                else:
+                    raise
+        if attempt < max_retries:
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+            time.sleep(delay)
+    raise last_error
 
-# Interactive Selector for Data Formats
+# -----------------------------
+# 3. GEOSPATIAL DATA EXPLORER
+# -----------------------------
+st.subheader("📚 Interactive Geospatial Data Explorer")
+st.caption(
+    "Click a data format below to dynamically load its corresponding interactive visual example and theoretical explanation."
+)
+
 selected_format = st.radio(
     "Select Data Format to Explore:",
     [
@@ -79,7 +115,7 @@ if selected_format == "📍 Vector Points (Incidents)":
     with expl_col:
         st.markdown("### 📍 Vector Point Data")
         st.markdown("""
-        * **Structure:** Discrete $X, Y$ coordinate pairs ($\text{Longitude}, \text{Latitude}$) stored with attributes.
+        * **Structure:** Discrete $X, Y$ coordinate pairs ($\\text{Longitude}, \\text{Latitude}$) stored with attributes.
         * **When to Use:** Representing distinct, localized events or objects like incident locations, fire hydrants, or transit stops.
         * **Why it Matters:** Allows exact spatial point pattern analysis, distance measurement, and nearest-neighbor calculations.
         """)
@@ -146,8 +182,8 @@ else:
     with expl_col:
         st.markdown("### 🌐 Coordinates (Latitude & Longitude)")
         st.markdown("""
-        * **Latitude ($\mathbf{\phi}$):** Measures angular distance North/South of the Equator ($0^\circ$). Chicago is centered at $\sim 41.8781^\circ\text{ N}$.
-        * **Longitude ($\mathbf{\lambda}$):** Measures angular distance East/West of the Prime Meridian ($0^\circ$). Chicago is centered at $\sim -87.6298^\circ\text{ W}$.
+        * **Latitude ($\\mathbf{\\phi}$):** Measures angular distance North/South of the Equator ($0^\\circ$). Chicago is centered at $\\sim 41.8781^\\circ\\text{ N}$.
+        * **Longitude ($\\mathbf{\\lambda}$):** Measures angular distance East/West of the Prime Meridian ($0^\\circ$). Chicago is centered at $\\sim -87.6298^\\circ\\text{ W}$.
         * **CRS (EPSG:4326):** Standard global datum (WGS84) used by GPS systems to project spherical coordinates onto flat screens.
         """)
         st.info("💡 **Interpretation:** Every point on Earth requires both a latitude and longitude value to be uniquely identified.")
@@ -169,7 +205,9 @@ else:
 
 st.divider()
 
-# 4. CACHED GEOSPATIAL DATA GENERATOR
+# -----------------------------
+# 4. CACHED DATA GENERATOR
+# -----------------------------
 @st.cache_data
 def load_data():
     np.random.seed(42)
@@ -178,7 +216,11 @@ def load_data():
     lats = np.random.normal(loc=41.8781, scale=0.06, size=n)
     lons = np.random.normal(loc=-87.6298, scale=0.05, size=n)
     community_ids = np.random.choice(range(1, 78), size=n)
-    severity_levels = np.random.choice(["Low", "Medium", "High", "Critical"], size=n, p=[0.4, 0.3, 0.2, 0.1])
+    severity_levels = np.random.choice(
+        ["Low", "Medium", "High", "Critical"],
+        size=n,
+        p=[0.4, 0.3, 0.2, 0.1]
+    )
     response_times = np.random.exponential(scale=15, size=n).round(1)
 
     df = pd.DataFrame({
@@ -199,7 +241,9 @@ def load_data():
 
 df_incidents, gdf_incidents = load_data()
 
-# 5. INTERACTIVE SIDEBAR CONTROL PANEL
+# -----------------------------
+# 5. SIDEBAR CONTROLS
+# -----------------------------
 st.sidebar.header("🎛️ Student Control Panel")
 
 selected_severity = st.sidebar.multiselect(
@@ -215,15 +259,25 @@ view_mode = st.sidebar.radio(
 
 filtered_df = df_incidents[df_incidents["Severity"].isin(selected_severity)]
 
-# 6. METRIC KPIS
+# -----------------------------
+# 6. KPIS
+# -----------------------------
 kpi1, kpi2, kpi3 = st.columns(3)
 kpi1.metric("Visible Incidents", f"{len(filtered_df):,}")
-kpi2.metric("Average Response Time", f"{filtered_df['Response_Time_Min'].mean():.1f} min" if not filtered_df.empty else "N/A")
-kpi3.metric("Critical Incidents Ratio", f"{(filtered_df['Severity'] == 'Critical').mean() * 100:.1f}%" if not filtered_df.empty else "N/A")
+kpi2.metric(
+    "Average Response Time",
+    f"{filtered_df['Response_Time_Min'].mean():.1f} min" if not filtered_df.empty else "N/A"
+)
+kpi3.metric(
+    "Critical Incidents Ratio",
+    f"{(filtered_df['Severity'] == 'Critical').mean() * 100:.1f}%" if not filtered_df.empty else "N/A"
+)
 
 st.divider()
 
-# 7. VISUALIZATION CANVAS (MAPS + HISTOGRAM CHARTS)
+# -----------------------------
+# 7. MAPS + CHARTS
+# -----------------------------
 left_col, right_col = st.columns([2, 1])
 
 with left_col:
@@ -264,7 +318,11 @@ with left_col:
         st.plotly_chart(fig_choro, use_container_width=True)
 
     else:
-        folium_map = folium.Map(location=[41.8781, -87.6298], zoom_start=10, tiles="CartoDB positron")
+        folium_map = folium.Map(
+            location=[41.8781, -87.6298],
+            zoom_start=10,
+            tiles="CartoDB positron"
+        )
         for _, row in filtered_df.head(100).iterrows():
             folium.CircleMarker(
                 location=[row["Latitude"], row["Longitude"]],
@@ -287,7 +345,9 @@ with right_col:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
-# 8. AI ASSISTANT, STORYTELLING & REPORT GENERATOR (GEMINI POWERED)
+# -----------------------------
+# 8. AI ASSISTANT & REPORTS
+# -----------------------------
 st.divider()
 st.subheader("🤖 AI Spatial Assistant & Report Builder")
 
@@ -299,9 +359,11 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🆚 Compare: You vs. AI"
 ])
 
-# TAB 1: INTERACTIVE CHAT INTERFACE
+# TAB 1: CHAT
 with tab1:
-    st.markdown("Ask the AI assistant any questions about analyzing spatial data, interpreting map hotspots, or structuring your lab report.")
+    st.markdown(
+        "Ask the AI assistant any questions about analyzing spatial data, interpreting map hotspots, or structuring your lab report."
+    )
     
     if not client:
         st.warning("⚠️ Gemini API key not detected. Please add `GEMINI_API_KEY` to your Streamlit secrets.")
@@ -310,7 +372,11 @@ with tab1:
             st.session_state.chat_messages = [
                 {
                     "role": "model", 
-                    "content": "Hello! I am your Spatial Data Science AI assistant powered by Gemini. Ask me how to interpret your active map data, analyze geographic hotspots, or write policy recommendations!"
+                    "content": (
+                        "Hello! I am your Spatial Data Science AI assistant powered by Gemini. "
+                        "Ask me how to interpret your active map data, analyze geographic hotspots, "
+                        "or write policy recommendations!"
+                    )
                 }
             ]
 
@@ -327,12 +393,16 @@ with tab1:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 
+                avg_rt = (
+                    filtered_df['Response_Time_Min'].mean()
+                    if not filtered_df.empty else 0.0
+                )
                 system_context = f"""
                 You are an expert Spatial Analytics Teaching Assistant. 
                 The student is currently analyzing Chicago incident data with these parameters:
                 - Selected Severities: {selected_severity}
                 - Total Filtered Incidents: {len(filtered_df)}
-                - Average Response Time: {filtered_df['Response_Time_Min'].mean():.1f} min if not filtered_df.empty else 0
+                - Average Response Time: {avg_rt:.1f} minutes
                 - Active Map Representation: {view_mode}
 
                 Help the student understand spatial concepts (vector vs. raster/TIFF, point clusters vs boundary polygons), 
@@ -348,7 +418,7 @@ with tab1:
 
                     full_response = ""
                     for chunk in response_stream:
-                        if chunk.text:
+                        if hasattr(chunk, "text") and chunk.text:
                             full_response += chunk.text
                             message_placeholder.markdown(full_response + "▌")
                     
@@ -358,9 +428,11 @@ with tab1:
                 except Exception as e:
                     st.error(f"⚠️ Gemini API Call Failed: {e}")
 
-# TAB 2: AUTOMATED REPORT GENERATOR
+# TAB 2: AUTO REPORT
 with tab2:
-    st.markdown("Click below to generate a structured academic report based on your currently filtered dataset.")
+    st.markdown(
+        "Click below to generate a structured academic report based on your currently filtered dataset."
+    )
     
     if not client:
         st.warning("⚠️ Gemini API key not detected. Please add `GEMINI_API_KEY` to your Streamlit secrets.")
@@ -370,8 +442,14 @@ with tab2:
                 try:
                     avg_time = filtered_df['Response_Time_Min'].mean() if not filtered_df.empty else 0
                     total_incidents = len(filtered_df)
-                    top_areas = filtered_df['Community_Area'].value_counts().head(3).to_dict() if not filtered_df.empty else {}
-                    severity_counts = filtered_df['Severity'].value_counts().to_dict() if not filtered_df.empty else {}
+                    top_areas = (
+                        filtered_df['Community_Area'].value_counts().head(3).to_dict()
+                        if not filtered_df.empty else {}
+                    )
+                    severity_counts = (
+                        filtered_df['Severity'].value_counts().to_dict()
+                        if not filtered_df.empty else {}
+                    )
 
                     report_prompt = f"""
                     You are a Senior Spatial Data Science Professor. Analyze the following Chicago geospatial incident data summary and write an engaging data story and report section for students.
@@ -390,13 +468,13 @@ with tab2:
                     4. 📝 **Report Writing Tip for Students**: Explain briefly why this structure works well in technical academic writing.
                     """
 
-                    response, used_model = generate_with_fallback(
+                    response, used_model = generate_with_retry(
                         client,
                         contents=report_prompt,
-                        stream=False
                     )
 
                     st.session_state.ai_report = response.text
+                    st.success(f"Report generated using {used_model}")
 
                 except Exception as e:
                     st.error(f"⚠️ Report Generation Failed: {e}")
@@ -404,7 +482,7 @@ with tab2:
         if st.session_state.get("ai_report"):
             st.markdown(st.session_state.ai_report)
 
-# TAB 3: GUIDED STORY & DECISION WORKSHOP
+# TAB 3: WORKSHOP
 with tab3:
     st.markdown("""
     ### 🧠 Data Story & Decision Workshop
@@ -442,12 +520,12 @@ with tab3:
         placeholder="e.g., Position emergency units closer to identified high-density clusters..."
     )
 
-# TAB 4: RAW DATASET
+# TAB 4: RAW DATA
 with tab4:
     st.caption("💡 Use raw tabular data to verify observations made on the spatial maps.")
     st.dataframe(filtered_df, use_container_width=True)
 
-# TAB 5: COMPARE — STUDENT STORY VS. AI REPORT
+# TAB 5: COMPARE
 with tab5:
     st.markdown("### 🆚 Compare Your Story vs. the AI Report")
 
